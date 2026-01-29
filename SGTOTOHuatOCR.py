@@ -15,28 +15,39 @@ def load_ocr():
 reader = load_ocr()
 
 st.set_page_config(page_title="SG Smart Toto Scanner", layout="centered")
-
-# 1. Custom CSS for that "Special SG" look (Same as before)
+# Custom CSS to shrink text and enlarge the camera
 st.markdown("""
     <style>
+    /* 1. Make all base text smaller */
+    html, body, [class*="st-"] {
+        font-size: 0.9rem !important;
+    }
+    
+    /* 2. Make the SG Badge smaller and neater */
     .sg-badge {
         background-color: #ED1B24;
         color: white;
-        padding: 2px 10px;
-        border-radius: 5px;
+        padding: 1px 6px;
+        border-radius: 3px;
         font-weight: bold;
-        font-size: 1.3em;
-        display: inline-block;
-        margin-right: 8px;
+        font-size: 0.8rem;
+        vertical-align: middle;
     }
+
+    /* 3. Force the Camera Frame to be wider/larger */
+    div[data-testid="stCameraInput"] {
+        width: 100% !important;
+        max-width: 800px !important;
+    }
+    
+    /* 4. Shrink the instruction card text */
     .instruction-card {
         background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #ED1B24;
-        margin-bottom: 20px;
-        font-size: 0.95em;
-        color: #31333F; /* Standard Streamlit text color */
+        padding: 10px;
+        border-radius: 8px;
+        border-left: 4px solid #ED1B24;
+        font-size: 0.85rem;
+        line-height: 1.3;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -50,10 +61,10 @@ st.write("**Tired of checking your TOTO tickets line by line? Try me!**")
 st.markdown("""
 <div class="instruction-card">
     <b>Step-by-Step Guide:</b><br>
-    1. Use your camera to take a picture of your ticket<br>
-    2. Confirm our OCR detects your number correctly<br>
-    3. Confirm if the TOTO winning numbers are correct<br>
-    4. Match!
+    1. 💡 Ensure you are in a <b>well-lit</b> area.<br>
+    2. 📸 Align and take a picture of your ticket <b>further away</b> for better focus.<br>
+    3. ✅ <b>Confirm</b> if your TOTO ticket numbers are correct with our AI scanner (🔍pls double check!🔍)<br>
+    4. 🏆 <b>[Work in Progress]</b> Match the right TOTO winning numbers to HUAT 💰. <br>
 </div>
 """, unsafe_allow_html=True)
 
@@ -116,3 +127,7 @@ if img_file:
         user_picks = final_numbers[0]
         st.success(f"Checking these numbers: {user_picks}")
         # Phase 3 (Scraping logic) would be triggered here
+        
+# Add this at the very end of your app.py
+st.divider() # Adds a nice thin line above your credit
+st.caption("v1.0.1 | Developed by CL")
