@@ -18,9 +18,17 @@ st.set_page_config(page_title="SG Smart Toto Scanner", layout="centered")
 # Custom CSS to shrink text and enlarge the camera
 st.markdown("""
     <style>
+    
+    h1 {
+    font-size: 1.2rem !important;
+    margin-bottom: 5px !important;
+    padding-top: 0px !important;
+    }
+
+
     /* 1. Make all base text smaller */
     html, body, [class*="st-"] {
-        font-size: 0.9rem !important;
+        font-size: 0.6rem !important;
     }
     
     /* 2. Make the SG Badge smaller and neater */
@@ -30,7 +38,7 @@ st.markdown("""
         padding: 1px 6px;
         border-radius: 3px;
         font-weight: bold;
-        font-size: 0.8rem;
+        font-size: 0.6rem;
         vertical-align: middle;
     }
 
@@ -46,7 +54,7 @@ st.markdown("""
         padding: 10px;
         border-radius: 8px;
         border-left: 4px solid #ED1B24;
-        font-size: 0.85rem;
+        font-size: 0.6rem;
         line-height: 1.3;
     }
     </style>
@@ -68,55 +76,41 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 4. THE CAMERA FRAME (Appears below the guide)
+
+    
+# 3. Preprocessing Function
+def preprocess_image(img_file):
+    # Use .getvalue() instead of .read() to avoid empty buffer issues
+    file_bytes = np.asarray(bytearray(img_file.getvalue()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return img, thresh
+
+    
+    
+# 4. Main App Logic (Combined into ONE block)
 img_file = st.camera_input("Scan your ticket")
 
 if img_file:
-    st.success("✅ Ticket captured! Scroll down to verify numbers.")
-    # Your OCR logic will trigger here
+    st.success("✅ Ticket captured!")
     
-    
-    
-    
-    
-def preprocess_image(image_bytes):
-    # Convert bytes to numpy array for OpenCV
-    file_bytes = np.asarray(bytearray(image_bytes.read()), dtype=np.uint8)
-    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    
-    # Pre-processing for better OCR accuracy
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Increase contrast and apply Threshold (B&W)
-    # This helps distinguish '8' from '6' or 'B'
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
-    return img, thresh
-
-if img_file:
-    # 3. Process Image
+    # Process Image
     original, processed = preprocess_image(img_file)
     
-    # Show the "Cleaned" version to the user for transparency
     with st.expander("See what the AI sees (Processed Image)"):
         st.image(processed, caption="High-Contrast B&W")
 
-    # 4. Perform OCR
+    # Perform OCR
     with st.spinner("Reading numbers..."):
         results = reader.readtext(processed)
-        
-        # Extract only the numbers found in the text
         all_text = " ".join([res[1] for res in results])
-        # Find all 1 or 2 digit numbers (Toto numbers are 1-49)
         detected_numbers = re.findall(r'\b\d{1,2}\b', all_text)
-        # Filter to keep only valid Toto numbers (1-49)
         valid_numbers = sorted(list(set([int(n) for n in detected_numbers if 1 <= int(n) <= 49])))
 
-    # 5. User Verification (The "Double Check" Box)
     st.subheader("Verify Scanned Numbers")
     st.info("The AI might make mistakes. Please tap below to correct any numbers.")
     
-    # We use a data_editor so the user can literally type over the mistakes
     final_numbers = st.data_editor(
         [valid_numbers], 
         num_rows="always",
@@ -126,8 +120,7 @@ if img_file:
     if st.button("Check Winnings"):
         user_picks = final_numbers[0]
         st.success(f"Checking these numbers: {user_picks}")
-        # Phase 3 (Scraping logic) would be triggered here
-        
-# Add this at the very end of your app.py
-st.divider() # Adds a nice thin line above your credit
+
+# 5. Footer
+st.divider()
 st.caption("v1.0.1 | Developed by CL")
