@@ -5,6 +5,7 @@ import numpy as np
 import easyocr
 from PIL import Image
 import re
+import requests
 
 # 1. Initialize the OCR Reader (English)
 # Use gpu=False if you don't have an NVIDIA graphics card
@@ -16,41 +17,32 @@ import re
 
 
 def update_visitor_count():
-    # Replace 'YOUR_API_KEY' with the actual key they gave you
-    url = "https://api.counterapi.dev/v2/colinxcolins-team-2675/sgtotohuatchecker/up"
+    # 1. URLs
+    up_url = "https://api.counterapi.dev/v2/colinxcolins-team-2675/sgtotohuatchecker/up"
+    read_url = "https://api.counterapi.dev/v2/colinxcolins-team-2675/sgtotohuatchecker"
+    
+    # 2. Key (Keep it just in case, but optional if public)
     headers = {"Authorization": "Bearer ut_WMBjN5tXKrNjLWyppZqGvOdtgq7mkCx380Gm5oqT"}
     
     try:
-        # This sends the 'up' command to increase the count by 1
-        response = requests.get(url, headers=headers)
-        data = response.json()
-        return data['count']
-    except:
-        return "0000" # Fallback if API is down
+        # Step A: Increment the count
+        requests.get(up_url, headers=headers, timeout=5)
+        
+        # Step B: Get the new updated count immediately
+        response = requests.get(read_url, headers=headers, timeout=5)
+        json_response = response.json()
+        
+        count_value = json_response['data']['up_count']
 
-
-def handle_counter():
-    # 1. Setup your API info
-    namespace = "colinxcolins-team-2675"
-    id = "sgtotohuatchecker"
-    key = "ut_WMBjN5tXKrNjLWyppZqGvOdtgq7mkCx380Gm5oqT" # Replace with your actual key
-    headers = {"Authorization": f"Bearer {key}"}
-    
-    # 2. Check if this is a new session (first time loading the page)
-    if 'has_visited' not in st.session_state:
-        # User just arrived! Increment the count.
-        url = f"https://api.counterapi.dev/v2/{namespace}/{id}/up"
-        st.session_state['has_visited'] = True
-    else:
-        # User is already here, just get the current number.
-        url = f"https://api.counterapi.dev/v2/{namespace}/{id}"
-
-    try:
-        response = requests.get(url, headers=headers, timeout=5)
-        return response.json()['count']
-    except Exception:
-        return "000000" # Fallback if API fails
-
+        # Your browser showed the count is in ['data']['up_count']
+        return count_value
+        
+    except Exception as e:
+        
+        return "" # Fallback if API is down
+        
+        
+        
 
 def load_ocr():
     return easyocr.Reader(['en'], gpu=False)
@@ -120,8 +112,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-
-    
+ 
 # 3. Preprocessing Function
 def preprocess_image(img_file):
     # Use .getvalue() instead of .read() to avoid empty buffer issues
@@ -139,10 +130,6 @@ img_file = st.camera_input("Scan your ticket")
 if img_file:
     st.success("✅ Ticket captured!")
     
-    # Only "UP" the counter if we haven't done it this session
-    if 'has_updated_count' not in st.session_state:
-        update_visitor_count() # The /up call
-        st.session_state['has_updated_count'] = True
   
     # Process Image
     original, processed = preprocess_image(img_file)
@@ -171,14 +158,16 @@ if img_file:
         st.success(f"Checking these numbers: {user_picks}")
 
 
-mycount = handle_counter()
+
+count = update_visitor_count()
+
 # Format the count to look like a 6-digit odometer
-formatted_count = str(mycount).zfill(6)
+formatted_count = str(count).zfill(6)
 
 # Display at the bottom (near your version/credits)
 st.markdown(f"""
     <div style='text-align: center; margin-top: 20px;'>
-        <p style='margin-bottom: 5px; font-size: 0.7rem; color: gray;'>VISITOR COUNT</p>
+        <p style='margin-bottom: 5px; font-size: 0.7rem; color: gray;'>VISITOR COUNT:</p>
         <span class='visitor-counter'>{formatted_count}</span>
     </div>
 """, unsafe_allow_html=True)
