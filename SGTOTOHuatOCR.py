@@ -15,6 +15,7 @@ def load_ocr():
 reader = load_ocr()
 
 st.set_page_config(page_title="SG Smart Toto Scanner", layout="centered")
+
 # Custom CSS to shrink text and enlarge the camera
 st.markdown("""
     <style>
@@ -63,15 +64,15 @@ st.markdown("""
     
 # 2. TITLE & INITIAL HOOK
 st.markdown('<h1><span class="sg-badge">SG</span> TOTO Scanner</h1>', unsafe_allow_html=True)
-st.write("**Tired of checking your TOTO tickets line by line? Try me!**")
+st.markdown("<p style='margin-top: -15px; font-weight: bold;'>Tired of checking your TOTO tickets line by line? Try me!</p>", unsafe_allow_html=True)
 
 # 3. THE GUIDE (Placed explicitly BEFORE the camera)
 st.markdown("""
 <div class="instruction-card">
     <b>Step-by-Step Guide:</b><br>
     1. 💡 Ensure you are in a <b>well-lit</b> area.<br>
-    2. 📸 Align and take a picture of your ticket <b>further away</b> for better focus.<br>
-    3. ✅ <b>Confirm</b> if your TOTO ticket numbers are correct with our AI scanner (🔍pls double check!🔍)<br>
+    2. 📸 Allow camera and snap your toto ticket. <b>Bring further</b> for better focus.<br>
+    3. ✅ <b>Confirm</b> TOTO ticket numbers with AI scanner (🔍double check!🔍)<br>
     4. 🏆 <b>[Work in Progress]</b> Match the right TOTO winning numbers to HUAT 💰. <br>
 </div>
 """, unsafe_allow_html=True)
@@ -123,4 +124,4 @@ if img_file:
 
 # 5. Footer
 st.divider()
-st.caption("v1.0.1 | Developed by CL")
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.7rem;'> v1.0.2 (Works in progress) | Developed by satayfish </div>", unsafe_allow_html=True)
