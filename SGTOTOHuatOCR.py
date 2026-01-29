@@ -20,7 +20,7 @@ st.markdown("""
     <style>
     
     h1 {
-    font-size: 1.2rem !important;
+    font-size: 2rem !important;
     margin-bottom: 5px !important;
     padding-top: 0px !important;
     }
@@ -28,7 +28,7 @@ st.markdown("""
 
     /* 1. Make all base text smaller */
     html, body, [class*="st-"] {
-        font-size: 0.6rem !important;
+        font-size: 0.8rem !important;
     }
     
     /* 2. Make the SG Badge smaller and neater */
@@ -38,7 +38,7 @@ st.markdown("""
         padding: 1px 6px;
         border-radius: 3px;
         font-weight: bold;
-        font-size: 0.6rem;
+        font-size: 0.7rem;
         vertical-align: middle;
     }
 
@@ -54,7 +54,7 @@ st.markdown("""
         padding: 10px;
         border-radius: 8px;
         border-left: 4px solid #ED1B24;
-        font-size: 0.6rem;
+        font-size: 0.8rem;
         line-height: 1.3;
     }
     </style>
