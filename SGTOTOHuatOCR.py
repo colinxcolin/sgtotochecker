@@ -118,7 +118,7 @@ if img_file:
         use_container_width=True
     )
 
-    if st.button("Check Winnings"):
+    if st.button("Check Winnings - In progress"):
         user_picks = final_numbers[0]
         st.success(f"Checking these numbers: {user_picks}")
 
