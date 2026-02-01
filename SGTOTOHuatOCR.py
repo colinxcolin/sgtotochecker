@@ -148,66 +148,72 @@ st.markdown("""
 
 # ONLY ONE camera input here
 img_file = st.camera_input("Take a photo of your ticket")
+
 if img_file:
     st.success("✅ Ticket captured!")
     
-    # A. Counter
-    if 'already_counted' not in st.session_state:
-        st.session_state['scan_val'] = update_scan_counter()
-        st.session_state['already_counted'] = True
+    # A. Processing
+    original, processed = preprocess_image(img_file)
     
-    # B. Processing (Check if this fails)
-    try:
-        original, processed = preprocess_image(img_file)
-        
-        # DISPLAY THIS IMMEDIATELY
-        with st.expander("🔍 See what the AI sees (Processed Image)", expanded=False):
-            st.image(processed, caption="High-Contrast B&W View")
-            
-        # C. OCR
-        with st.spinner("Analyzing ticket..."):
-            # Use the processed image for OCR
-            results = reader.readtext(processed)
-            
-            # DEBUG: Uncomment the line below if still no numbers to see raw OCR output in console
-            # print(f"DEBUG OCR: {results}") 
-            
-            final_sets = process_ticket_logic(results)
+    with st.expander("See what the AI sees"):
+        st.image(processed, caption="High-Contrast B&W")
 
-        # D. Show Table
-        if final_sets:
-            st.subheader("Verify Scanned Numbers")
-            edited_sets = st.data_editor(
-                final_sets, 
-                num_rows="dynamic", 
-                use_container_width=True,
-                key="toto_editor" # Unique key prevents refresh issues
-            )
+    # B. Perform OCR (Your GitHub logic + My Spatial Logic)
+    with st.spinner("Reading numbers row-by-row..."):
+        results = reader.readtext(processed)
+        
+        valid_data = []
+        for res in results:
+            bbox = res[0]
+            text = res[1]
             
-            if st.button("Check Winnings"):
-                draw_results = get_latest_toto_results()
-                winning_nos = set(draw_results['numbers'])
-                bonus_no = draw_results['additional']
-                
-                st.subheader(f"Draw Results ({draw_results['date']})")
-                st.write(f"Winning: {sorted(list(winning_nos))} | Bonus: {bonus_no}")
-                
-                for idx, user_set in enumerate(edited_sets):
-                    user_set_set = set(user_set)
-                    matches = user_set_set.intersection(winning_nos)
-                    match_count = len(matches)
-                    row_name = chr(65 + idx)
-                    
-                    if match_count >= 3:
-                        st.success(f"Row {row_name}: {match_count} Matches! HUAT AH! 💰")
-                    else:
-                        st.info(f"Row {row_name}: {match_count} matches.")
-                st.balloons()
-        else:
-            st.error("❌ No TOTO sets detected. Try moving the ticket further away for better focus.")
+            # Use your old Regex to find numbers 1-49
+            detected = re.findall(r'\b\d{1,2}\b', text)
+            for n in detected:
+                num = int(n)
+                if 1 <= num <= 49:
+                    # Calculate Y-center for grouping
+                    y_center = (bbox[0][1] + bbox[2][1]) / 2
+                    valid_data.append({'val': num, 'y': y_center})
+
+        # C. Grouping (The System 7/8 Logic)
+        final_sets = []
+        if valid_data:
+            # Sort all found numbers by their vertical position
+            valid_data.sort(key=lambda k: k['y'])
             
-    except Exception as e:
-        st.error(f"Error processing image: {e}")
+            current_set = [valid_data[0]['val']]
+            last_y = valid_data[0]['y']
+            line_threshold = 40 # Increased slightly to handle watermark gaps
+            
+            for i in range(1, len(valid_data)):
+                gap = valid_data[i]['y'] - last_y
+                if gap < line_threshold:
+                    current_set.append(valid_data[i]['val'])
+                else:
+                    final_sets.append(sorted(list(set(current_set))))
+                    current_set = [valid_data[i]['val']]
+                last_y = valid_data[i]['y']
+            
+            final_sets.append(sorted(list(set(current_set))))
+
+    # D. Display in the Data Editor
+    if final_sets:
+        st.subheader("Verify Scanned Numbers")
+        # Filter out rows with fewer than 6 numbers (likely noise/dates)
+        filtered_sets = [s for s in final_sets if len(s) >= 6]
+        
+        edited_sets = st.data_editor(
+            filtered_sets, 
+            num_rows="dynamic", 
+            use_container_width=True
+        )
+        
+        if st.button("Check Winnings"):
+            # Comparison logic goes here...
+            st.balloons()
+    else:
+        st.error("No numbers detected. The watermark might be too dark!")
 
 
 
