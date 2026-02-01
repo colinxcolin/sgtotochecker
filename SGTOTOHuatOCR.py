@@ -1,53 +1,79 @@
    
 import streamlit as st
+import requests
 import cv2
 import numpy as np
 import easyocr
+
 from PIL import Image
 import re
-import requests
 
-# 1. Initialize the OCR Reader (English)
-# Use gpu=False if you don't have an NVIDIA graphics card
+
+# Replace with your actual key if you want to use the Private mode
+API_KEY = "ut_WMBjN5tXKrNjLWyppZqGvOdtgq7mkCx380Gm5oqT"
+NAMESPACE = "colinxcolins-team-2675"
+KEY_ID = "sgtotohuatchecker"
+
+
 @st.cache_resource
-
-
-
-
-
-
-def update_visitor_count():
-    # 1. URLs
-    up_url = "https://api.counterapi.dev/v2/colinxcolins-team-2675/sgtotohuatchecker/up"
-    read_url = "https://api.counterapi.dev/v2/colinxcolins-team-2675/sgtotohuatchecker"
-    
-    # 2. Key (Keep it just in case, but optional if public)
-    headers = {"Authorization": "Bearer ut_WMBjN5tXKrNjLWyppZqGvOdtgq7mkCx380Gm5oqT"}
-    
-    try:
-        # Step A: Increment the count
-        requests.get(up_url, headers=headers, timeout=5)
-        
-        # Step B: Get the new updated count immediately
-        response = requests.get(read_url, headers=headers, timeout=5)
-        json_response = response.json()
-        
-        count_value = json_response['data']['up_count']
-
-        # Your browser showed the count is in ['data']['up_count']
-        return count_value
-        
-    except Exception as e:
-        
-        return "" # Fallback if API is down
-        
-        
-        
-
 def load_ocr():
     return easyocr.Reader(['en'], gpu=False)
 
 reader = load_ocr()
+
+
+
+def preprocess_image(img_file):
+    file_bytes = np.asarray(bytearray(img_file.getvalue()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return img, thresh
+
+def process_ticket_logic(ocr_results):
+    valid_data = []
+    for (bbox, text, prob) in ocr_results:
+        clean_text = "".join(filter(str.isdigit, text))
+        if clean_text and 1 <= int(clean_text) <= 49:
+            y_center = (bbox[0][1] + bbox[2][1]) / 2
+            valid_data.append({'val': int(clean_text), 'y': y_center})
+    if not valid_data: return []
+    valid_data.sort(key=lambda k: k['y'])
+    toto_sets = []
+    current_set = [valid_data[0]['val']]
+    last_y = valid_data[0]['y']
+    line_threshold = 35 
+    for i in range(1, len(valid_data)):
+        gap = valid_data[i]['y'] - last_y
+        if gap < line_threshold:
+            current_set.append(valid_data[i]['val'])
+        else:
+            toto_sets.append(sorted(list(set(current_set))))
+            current_set = [valid_data[i]['val']]
+        last_y = valid_data[i]['y']
+    toto_sets.append(sorted(list(set(current_set))))
+    return [s for s in toto_sets if len(s) >= 6]
+
+
+
+
+
+def update_scan_counter():
+    up_url = f"https://api.counterapi.dev/v2/{NAMESPACE}/{KEY_ID}/up"
+    headers = {"Authorization": f"Bearer {API_KEY}"}
+    try:
+        response = requests.get(up_url, headers=headers, timeout=5)
+        return response.json()['data']['up_count']
+    except: return "000000"
+
+
+
+def get_latest_toto_results():
+    # Placeholder: In a real scenario, this scrapes SG Pools. 
+    # For now, it returns dummy data to prevent errors.
+    return {"numbers": [1, 12, 23, 34, 45, 46], "additional": 7, "date": "1 Feb 2026"}
+    
+    
 
 st.set_page_config(page_title="SG Smart Toto Scanner", layout="centered")
 
@@ -101,6 +127,8 @@ st.markdown("""
 st.markdown('<h1><span class="sg-badge">SG</span> TOTO Scanner</h1>', unsafe_allow_html=True)
 st.markdown("<p style='margin-top: -15px; font-weight: bold;'>Tired of checking your TOTO tickets line by line? Try me!</p>", unsafe_allow_html=True)
 
+
+
 # 3. THE GUIDE (Placed explicitly BEFORE the camera)
 st.markdown("""
 <div class="instruction-card">
@@ -112,65 +140,68 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
- 
-# 3. Preprocessing Function
-def preprocess_image(img_file):
-    # Use .getvalue() instead of .read() to avoid empty buffer issues
-    file_bytes = np.asarray(bytearray(img_file.getvalue()), dtype=np.uint8)
-    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return img, thresh
 
-    
-    
-# 4. Main App Logic (Combined into ONE block)
-img_file = st.camera_input("Scan your ticket")
+
+
+# --- 3. UI LAYOUT & MAIN LOGIC ---
+
+# ONLY ONE camera input here
+img_file = st.camera_input("Take a photo of your ticket")
 
 if img_file:
     st.success("✅ Ticket captured!")
     
-  
-    # Process Image
+    if 'already_counted' not in st.session_state:
+        st.session_state['scan_val'] = update_scan_counter()
+        st.session_state['already_counted'] = True
+    
     original, processed = preprocess_image(img_file)
     
-    with st.expander("See what the AI sees (Processed Image)"):
-        st.image(processed, caption="High-Contrast B&W")
-
-    # Perform OCR
-    with st.spinner("Reading numbers..."):
+    with st.spinner("Analyzing..."):
         results = reader.readtext(processed)
-        all_text = " ".join([res[1] for res in results])
-        detected_numbers = re.findall(r'\b\d{1,2}\b', all_text)
-        valid_numbers = sorted(list(set([int(n) for n in detected_numbers if 1 <= int(n) <= 49])))
+        final_sets = process_ticket_logic(results)
 
-    st.subheader("Verify Scanned Numbers")
-    st.info("The AI might make mistakes. Please tap below to correct any numbers.")
-    
-    final_numbers = st.data_editor(
-        [valid_numbers], 
-        num_rows="always",
-        use_container_width=True
-    )
+    if final_sets:
+        edited_sets = st.data_editor(final_sets, num_rows="dynamic", use_container_width=True)
+        
+        if st.button("Check Winnings"):
+            draw_results = get_latest_toto_results()
+            winning_nos = set(draw_results['numbers'])
+            bonus_no = draw_results['additional']
+            
+            st.subheader(f"Results for Draw {draw_results['date']}")
+            for idx, user_set in enumerate(edited_sets):
+                user_set_set = set(user_set)
+                matches = user_set_set.intersection(winning_nos)
+                row_name = chr(65 + idx)
+                if len(matches) >= 3:
+                    st.success(f"Row {row_name}: {len(matches)} Matches! HUAT AH!")
+                else:
+                    st.write(f"Row {row_name}: {len(matches)} matches.")
+            st.balloons()
+    else:
+        st.error("No numbers found.")
 
-    if st.button("Check Winnings - In progress"):
-        user_picks = final_numbers[0]
-        st.success(f"Checking these numbers: {user_picks}")
 
 
 
-count = update_visitor_count()
 
-# Format the count to look like a 6-digit odometer
-formatted_count = str(count).zfill(6)
 
-# Display at the bottom (near your version/credits)
+
+# --- 4. FOOTER & VISITOR COUNT ---
+
+display_count = st.session_state.get('scan_val', "000000")
+formatted_count = str(display_count).zfill(6)
+
 st.markdown(f"""
-    <div style='text-align: center; margin-top: 20px;'>
-        <p style='margin-bottom: 5px; font-size: 0.7rem; color: gray;'>VISITOR COUNT:</p>
-        <span class='visitor-counter'>{formatted_count}</span>
+    <div style='text-align: center;'>
+        <p style='color: gray; font-size: 0.8rem;'>TOTAL TICKETS SCANNED</p>
+        <span class="odometer">{formatted_count}</span>
     </div>
 """, unsafe_allow_html=True)
+
+
+
 
 # 5. Footer
 st.divider()
