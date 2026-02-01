@@ -29,6 +29,7 @@ def preprocess_image(img_file):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     return img, thresh
+    
 
 def process_ticket_logic(ocr_results):
     valid_data = []
@@ -147,40 +148,66 @@ st.markdown("""
 
 # ONLY ONE camera input here
 img_file = st.camera_input("Take a photo of your ticket")
-
 if img_file:
     st.success("✅ Ticket captured!")
     
+    # A. Counter
     if 'already_counted' not in st.session_state:
         st.session_state['scan_val'] = update_scan_counter()
         st.session_state['already_counted'] = True
     
-    original, processed = preprocess_image(img_file)
-    
-    with st.spinner("Analyzing..."):
-        results = reader.readtext(processed)
-        final_sets = process_ticket_logic(results)
-
-    if final_sets:
-        edited_sets = st.data_editor(final_sets, num_rows="dynamic", use_container_width=True)
+    # B. Processing (Check if this fails)
+    try:
+        original, processed = preprocess_image(img_file)
         
-        if st.button("Check Winnings"):
-            draw_results = get_latest_toto_results()
-            winning_nos = set(draw_results['numbers'])
-            bonus_no = draw_results['additional']
+        # DISPLAY THIS IMMEDIATELY
+        with st.expander("🔍 See what the AI sees (Processed Image)", expanded=False):
+            st.image(processed, caption="High-Contrast B&W View")
             
-            st.subheader(f"Results for Draw {draw_results['date']}")
-            for idx, user_set in enumerate(edited_sets):
-                user_set_set = set(user_set)
-                matches = user_set_set.intersection(winning_nos)
-                row_name = chr(65 + idx)
-                if len(matches) >= 3:
-                    st.success(f"Row {row_name}: {len(matches)} Matches! HUAT AH!")
-                else:
-                    st.write(f"Row {row_name}: {len(matches)} matches.")
-            st.balloons()
-    else:
-        st.error("No numbers found.")
+        # C. OCR
+        with st.spinner("Analyzing ticket..."):
+            # Use the processed image for OCR
+            results = reader.readtext(processed)
+            
+            # DEBUG: Uncomment the line below if still no numbers to see raw OCR output in console
+            # print(f"DEBUG OCR: {results}") 
+            
+            final_sets = process_ticket_logic(results)
+
+        # D. Show Table
+        if final_sets:
+            st.subheader("Verify Scanned Numbers")
+            edited_sets = st.data_editor(
+                final_sets, 
+                num_rows="dynamic", 
+                use_container_width=True,
+                key="toto_editor" # Unique key prevents refresh issues
+            )
+            
+            if st.button("Check Winnings"):
+                draw_results = get_latest_toto_results()
+                winning_nos = set(draw_results['numbers'])
+                bonus_no = draw_results['additional']
+                
+                st.subheader(f"Draw Results ({draw_results['date']})")
+                st.write(f"Winning: {sorted(list(winning_nos))} | Bonus: {bonus_no}")
+                
+                for idx, user_set in enumerate(edited_sets):
+                    user_set_set = set(user_set)
+                    matches = user_set_set.intersection(winning_nos)
+                    match_count = len(matches)
+                    row_name = chr(65 + idx)
+                    
+                    if match_count >= 3:
+                        st.success(f"Row {row_name}: {match_count} Matches! HUAT AH! 💰")
+                    else:
+                        st.info(f"Row {row_name}: {match_count} matches.")
+                st.balloons()
+        else:
+            st.error("❌ No TOTO sets detected. Try moving the ticket further away for better focus.")
+            
+    except Exception as e:
+        st.error(f"Error processing image: {e}")
 
 
 
@@ -205,7 +232,7 @@ st.markdown(f"""
 
 # 5. Footer
 st.divider()
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.7rem;'> v1.0.2 (Works in progress) | Developed by satayfish </div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.7rem;'> v1.0.3 (Works in progress) | Developed by satayfish </div>", unsafe_allow_html=True)
 
 
 
